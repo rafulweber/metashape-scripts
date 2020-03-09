@@ -1,0 +1,65 @@
+'''
+This script was developed by Toolik Field Station GIS Department (ToolikGIS) with fantastic assistance provided by Agisoft Team.
+R. Bogardus provided initial gradual selection steps and processing parameters to ToolikGIS.
+Any errors are the sole responsibility of ToolikGIS.
+Minimal error checking and handling.
+This script is made avialable to the public for free distribution.
+Developed on Agisoft Metashape Pro v.1.6.2 build 10247 (64bit)
+
+We use the following script to process aerial photos.
+The goal of the script is to use the gradual selection function to identify, select, and remove sparse cloud points with 'error' values in the top 10% of
+each of the following criteria: Reprojection Error, Reconstruction Uncertainty, and Projection Accuracy.'''
+import Metashape as ms
+doc = ms.app.document
+doc.chunk=doc.chunks[0]
+c=doc.chunk
+
+# Gradual Selection
+def GradualSelection(c,f):
+    list_values = list()
+    points=c.point_cloud.points
+    values=f.values
+    list_values = [values[i] for i in range(len(values)) if points[i].valid]
+    list_values.sort()
+    list_length=len(list_values)
+    target=int(list_length*0.9)
+    threshold=list_values[target]
+    f.selectPoints(threshold)
+    f.removePoints(threshold)
+    print ("COMPLETED SELECTION REMOVAL.  OPTIMIZING CAMERAS...")
+    c.optimizeCameras(fit_f=True, 
+			fit_cx=True,
+			fit_cy=True, 
+			fit_b1=True, 
+			fit_b2=True, 
+			fit_k1=True, 
+			fit_k2=True, 
+			fit_k3=True, 
+			fit_k4=False, 
+			fit_p1=True, 
+			fit_p2=True, 
+			fit_p3=False, 
+			fit_p4=False, 
+			adaptive_fitting=False)
+    return;
+for c in doc.chunks:
+    try:
+        print ('STARTING CHUNK:',c.label.upper())
+        #Remove bad points via Gradual Selection
+        print ('STARTING TO PROCESS REPROJECTION ERROR')
+        f = ms.PointCloud.Filter()
+        f.init(c, criterion = ms.PointCloud.Filter.ReprojectionError)
+        GradualSelection(c,f)
+        print ('STARTING TO PROCESS RECONSTRUCTION UNCERTAINTY')
+        f.init(c, criterion = ms.PointCloud.Filter.ReconstructionUncertainty)
+        GradualSelection(c,f)
+        print ('STARTING TO PROCESS PROJECTION ACCURACY')
+        f.init(c, criterion = ms.PointCloud.Filter.ProjectionAccuracy)
+        GradualSelection(c,f)
+        print ('MOVING ON TO THE NEXT CHUNK.\n')
+    except AttributeError:
+        print ('THIS CHUNK DOES NOT HAVE A SPARSE CLOUD.  \nMOVING ON... \n')
+print ('Done.')
+
+
+    
